@@ -1,10 +1,12 @@
 <?php
 namespace App;
 use Symfony\Component\Console\Output\ConsoleOutput;
+use Symfony\Component\Console\Helper\QuestionHelper;
+use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Helper\Table;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
-
 
 class Warehouse implements \JsonSerializable
 {
@@ -21,6 +23,9 @@ class Warehouse implements \JsonSerializable
         $this->db = new JsonDatabase();
         $this->users = $this->loadUsers();
         $this->products = $products;
+        $this->symfonyInput = new ArgvInput();
+        $this->symfonyOutput = new ConsoleOutput();
+        $this->symfonyHelper = new QuestionHelper();
         $this->run();
     }
     public function jsonSerialize(): array
@@ -33,8 +38,7 @@ class Warehouse implements \JsonSerializable
     }
     private function showProducts(): void
     {
-        $output = new ConsoleOutput();
-        $table = new Table($output);
+        $table = new Table($this->symfonyOutput);
         $table
             ->setHeaderTitle($this->name)
             ->setStyle('box-double')
@@ -53,8 +57,7 @@ class Warehouse implements \JsonSerializable
     private function showUsers(): void
     {
         $this->logger->info('Outputting users to symfony table ...');
-        $output = new ConsoleOutput();
-        $table = new Table($output);
+        $table = new Table($this->symfonyOutput);
         $table
             ->setHeaderTitle($this->name)
             ->setHeaders(User::getColumns())
@@ -143,6 +146,12 @@ class Warehouse implements \JsonSerializable
             if(count($this->users) === 0) {
                 $this->createUser('admin');
             }
+            $options = array_map(function ($user) {
+                return strtolower($user->getName());
+            }, $this->users);
+            $choice = new ChoiceQuestion('Choose a user: ', $options);
+            $choice->setErrorMessage('Option %s is invalid.');
+            $choice = $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
             $this->showUsers();
         }
 
