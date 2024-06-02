@@ -11,12 +11,16 @@ class Warehouse implements \JsonSerializable
     private string $name;
     private array $users;
     private array $products;
-    public function __construct(string $name, array $users, array $products)
+    private const VALID_STR_LENGTH = 20;
+    private const CODE_LENGTH = 4;
+    public function __construct(string $name, array $users = [], array $products = [])
     {
         $this->name = $name;
         $this->users = $users;
         $this->products = $products;
         $this->logger = new Logger($this->name);
+        $this->db = new JsonDatabase();
+        $this->run();
     }
     public function jsonSerialize(): array
     {
@@ -26,11 +30,13 @@ class Warehouse implements \JsonSerializable
             'products' => $this->products,
         ];
     }
-    private function show(): void
+    private function showProducts(): void
     {
         $output = new ConsoleOutput();
         $table = new Table($output);
         $table
+            ->setHeaderTitle($this->name)
+            ->setStyle('box-double')
             ->setHeaders(Product::getColumns())
             ->setRows(array_map(function ($product) {
                 return [
@@ -40,18 +46,50 @@ class Warehouse implements \JsonSerializable
                     $product->getUpdated(),
                     $product->getQuantity(),
                 ];
-            }, $this->products));
-        $table->setHeaderTitle($this->name);
-        $table->setStyle('box-double');
-        $table->render();
+            }, $this->products))
+            ->render();
     }
-    private function createUser(): void
+    private function showUsers(): void
     {
-        $this->users[] = new User();
+        $output = new ConsoleOutput();
+        $table = new Table($output);
+        $table
+            ->setHeaderTitle($this->name)
+            ->setHeaders(User::getColumns())
+            ->setStyle('box-double')
+            ->setRows(array_map(function ($user) {
+                return [
+                    $user->getId(),
+                    $user->getName(),
+                    $user->getCode(),
+                    $user->getRole(),
+                ];
+            }, $this->users))
+            ->render();
     }
-    public function run(): void
+
+    private function createUser(string $role = 'customer'): void
     {
-         self::cls();
+        $name = self::validateName('name', 'Enter Your Name: ');
+        $code = self::validateNum('PIN', 'Enter PIN: ');
+        $this->users[] = new User($this->getAutoIncrementId($this->users), $name, $code, $role);
+        $this->db->connect('users.json');
+        $this->db->write($this->users);
+    }
+
+
+
+
+
+    private function getAutoIncrementId(array $object): int
+    {
+        if (count($object) === 0) {
+            return 0;
+        }
+        $ids = array_map(function ($object) {
+            return $object->getId();
+        }, $object);
+        return max($ids) + 1;
     }
     public static function cls(): void {
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
@@ -59,5 +97,36 @@ class Warehouse implements \JsonSerializable
         } else {
             system('clear');
         }
+    }
+    public static function validateName(string $what, string $prompt): string
+    {
+        while(true) {
+            $name = readline($prompt);
+            if($name != '' && strlen($name) <= self::VALID_STR_LENGTH && !is_numeric($name)) {
+                return $name;
+            }
+            echo "$what name must be a string, max " . self::VALID_STR_LENGTH . " chars.\n";
+        }
+    }
+    public static function validateNum(string $what, string $prompt): int
+    {
+        while(true) {
+            $num = readline($prompt);
+            if (is_numeric($num) && strlen($num) == self::CODE_LENGTH) {
+                return $num;
+            }
+            echo "$what must be a valid " . self::CODE_LENGTH . " digit integer.\n";
+        }
+    }
+    public function run(): void
+    {
+        while(true) {
+            //self::cls();
+            if(count($this->users) === 0) {
+                $this->createUser('admin');
+            }
+            $this->showUsers();
+        }
+
     }
 }

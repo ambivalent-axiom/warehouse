@@ -6,10 +6,7 @@ use Monolog\Handler\StreamHandler;
 
 interface Database
 {
-    //TODO add database methods
-}
-
-class JSON implements Database
-{
-    //TODO add JSON writing and reading methods
+    public function connect($path);
+    public function read();
+    public function write(array $data);
 }
