@@ -17,6 +17,7 @@
         "symfony/console": "^5.4",
         "ext-json": "*",
         "ext-readline": "*",
-        "monolog/monolog": "^2.9"
+        "monolog/monolog": "^2.9",
+        "nette/schema": "^1.2"
     }
 }

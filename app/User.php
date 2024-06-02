@@ -1,5 +1,7 @@
 <?php
 namespace App;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
 
 class User implements \JsonSerializable
 {
@@ -14,6 +16,7 @@ class User implements \JsonSerializable
         $this->name = $name;
         $this->code = $code;
         $this->role = $role;
+        $this->logger = new Logger($this->name . ' ' . $this->id);
     }
     public function jsonSerialize(): array
     {
