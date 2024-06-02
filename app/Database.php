@@ -1,9 +1,6 @@
 <?php
 
 namespace App;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-
 interface Database
 {
     public function connect($path);
