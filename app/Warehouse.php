@@ -11,6 +11,7 @@ use Monolog\Handler\StreamHandler;
 class Warehouse implements \JsonSerializable
 {
     private string $name;
+    private User $user;
     private array $users;
     private array $products;
     private const VALID_STR_LENGTH = 20;
@@ -96,6 +97,29 @@ class Warehouse implements \JsonSerializable
         }
         return $users;
     }
+    private function selectUser(): User
+    {
+        $options = array_map(function ($user) {
+            return strtolower($user->getName());
+        }, $this->users);
+        $choice = new ChoiceQuestion('Choose a user: ', $options);
+        $choice->setErrorMessage('Option %s is invalid.');
+        $choice = $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
+        return $this->users[array_search($choice, $options)];
+    }
+    private function login(User $user): void
+    {
+        if($this->validateAccess($user)) {
+            $this->user = $user;
+            return;
+        }
+        throw new \Exception("Access denied!");
+    }
+    private function validateAccess(User $user): bool
+    {
+        $code = self::validateNum('PIN', 'Enter PIN: ');
+        return $user->getCode() == $code && ($code = true);
+    }
 
 
 
@@ -141,19 +165,16 @@ class Warehouse implements \JsonSerializable
     public function run(): void
     {
         $this->logger->info('Running Warehouse ...');
-        while(true) {
-            //self::cls();
-            if(count($this->users) === 0) {
-                $this->createUser('admin');
-            }
-            $options = array_map(function ($user) {
-                return strtolower($user->getName());
-            }, $this->users);
-            $choice = new ChoiceQuestion('Choose a user: ', $options);
-            $choice->setErrorMessage('Option %s is invalid.');
-            $choice = $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
-            $this->showUsers();
+        if(count($this->users) === 0) {
+            $this->createUser('admin');
         }
+        try {
+            $this->login($this->selectUser());
+        } catch (\Exception $e) {
+            echo $e->getMessage();
+            $this->logger->error($e->getMessage());
+        }
+
 
     }
 }
