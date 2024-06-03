@@ -3,6 +3,7 @@ namespace App;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Helper\Table;
 use Monolog\Logger;
@@ -16,6 +17,11 @@ class Warehouse implements \JsonSerializable
     private array $products;
     private const VALID_STR_LENGTH = 20;
     private const CODE_LENGTH = 4;
+    private const MAIN_MENU = [
+        'admin' => ['users', 'warehouse', 'logout', 'exit'],
+        'customer' => ['warehouse', 'logout', 'exit'],
+        'submenu' => ['add', 'update', 'remove', 'back']
+    ];
     public function __construct(string $name, array $products = [])
     {
         $this->name = $name;
@@ -109,7 +115,9 @@ class Warehouse implements \JsonSerializable
     }
     private function login(User $user): void
     {
+        $this->logger->info('Authorization in progress ...');
         if($this->validateAccess($user)) {
+            $this->logger->info('Login success!');
             $this->user = $user;
             return;
         }
@@ -121,10 +129,6 @@ class Warehouse implements \JsonSerializable
         return $user->getCode() == $code && ($code = true);
     }
 
-
-
-
-
     private function getAutoIncrementId(array $object): int
     {
         if (count($object) === 0) {
@@ -135,6 +139,24 @@ class Warehouse implements \JsonSerializable
         }, $object);
         return max($ids) + 1;
     }
+    private function mainMenu(): string
+    {
+        $options = $this->user->getRole() == 'admin' ? self::MAIN_MENU['admin'] : self::MAIN_MENU['customer'];
+        $choice = new ChoiceQuestion('Select the database for operation: ', $options);
+        $choice->setErrorMessage('Option %s is invalid.');
+        return $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
+    }
+    private function menu(array $options): string
+    {
+        $choice = new ChoiceQuestion('Select the database for operation: ', $options);
+        $choice->setErrorMessage('Option %s is invalid.');
+        return $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
+    }
+
+
+
+
+
     public static function cls(): void {
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             system('cls');
@@ -174,7 +196,38 @@ class Warehouse implements \JsonSerializable
             echo $e->getMessage();
             $this->logger->error($e->getMessage());
         }
-
-
+        while(true) {
+            self::cls();
+            switch ($this->mainMenu())
+            {
+                case 'users':
+                    self::cls();
+                    $this->showUsers();
+                    switch ($this->menu(self::MAIN_MENU['submenu'])) {
+                        case 'add':
+                            $question = new ConfirmationQuestion("Is NEW user an ADMIN? [y/N]: ");
+                            if ($this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput , $question)) {
+                                $this->createUser('admin');
+                            } else {
+                                $this->createUser();
+                            }
+                            break;
+                        case 'update':
+                            break; //TODO add update case
+                        case 'remove':
+                            break; //TODO add remove case
+                        case 'back':
+                            break;
+                        case 'exit':
+                            exit;
+                    }
+                    break;
+                case 'warehouse':
+                    echo "Warehouse";
+                    break;
+                case 'exit':
+                    exit;
+            }
+        }
     }
 }
