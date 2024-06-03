@@ -21,7 +21,8 @@ class Product implements \JsonSerializable
         $this->created = Carbon::now();
         $this->updated = $updated;
         $this->quantity = $quantity;
-        $this->logger = new Logger('product');
+        $this->logger = new Logger('Product ' . $this->name);
+        $this->logger->pushHandler(new StreamHandler('warehouse.log'));
     }
     public function jsonSerialize(): array
     {

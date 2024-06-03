@@ -18,6 +18,7 @@ class User implements \JsonSerializable
         $this->code = $code;
         $this->role = $role;
         $this->logger = new Logger($this->name . ' ' . $this->id);
+        $this->logger->pushHandler(new StreamHandler('warehouse.log'));
     }
     public function jsonSerialize(): array
     {
@@ -36,13 +37,25 @@ class User implements \JsonSerializable
     {
         return $this->name;
     }
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
     public function getCode(): string
     {
         return $this->code;
     }
+    public function setCode(string $code): void
+    {
+        $this->code = $code;
+    }
     public function getRole(): string
     {
         return $this->role;
+    }
+    public function setRole(string $role): void
+    {
+        $this->role = $role;
     }
     public static function getColumns()
     {

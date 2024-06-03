@@ -18,8 +18,8 @@ class Warehouse implements \JsonSerializable
     private const VALID_STR_LENGTH = 20;
     private const CODE_LENGTH = 4;
     private const MAIN_MENU = [
-        'admin' => ['users', 'warehouse', 'logout', 'exit'],
-        'customer' => ['warehouse', 'logout', 'exit'],
+        'admin' => ['users', 'warehouse', 'exit'],
+        'customer' => ['warehouse', 'exit'],
         'submenu' => ['add', 'update', 'remove', 'back']
     ];
     public function __construct(string $name, array $products = [])
@@ -79,18 +79,46 @@ class Warehouse implements \JsonSerializable
             }, $this->users))
             ->render();
     }
-
     private function createUser(string $role = 'customer'): void
     {
         $this->logger->info('Creating user ...');
         $name = self::validateName('name', 'Enter Your Name: ');
         $code = self::validateNum('PIN', 'Enter PIN: ');
-        $this->logger->info('Initiating new user instance ...');
         $this->users[] = new User($this->getAutoIncrementId($this->users), $name, $code, $role);
-        $this->logger->info('Writing new user instance to database ...');
-        $this->db->connect('users.json');
-        $this->db->write($this->users);
-        $this->logger->info('Success ...');
+        $this->writeUsers();
+    }
+    private function chooseUserRole(): string {
+        $question = new ConfirmationQuestion("Is NEW user an ADMIN? [y/N]: ");
+        return $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput , $question) ? 'admin' : 'customer';
+    }
+    private function updateUser(User $user): void
+    {
+        switch ($this->menu(array_slice(User::getColumns(), 1))) {
+            case 'name':
+                $user->setName(self::validateName('name', 'Enter New Name: '));
+                $this->writeUsers();
+                $this->logger->info('User ' . $user->getID() . " " . $user->getName() . ' updated name ...');
+                break;
+            case 'code':
+                $user->setCode(self::validateNum('PIN', 'Enter New PIN: '));
+                $this->writeUsers();
+                $this->logger->info('User ' . $user->getID() . " " . $user->getName() . ' updated PIN ...');
+                break;
+            case 'role':
+                $user->setRole($this->chooseUserRole());
+                $this->writeUsers();
+                $this->logger->info('User '  . $user->getID() . " ". $user->getName() . ' updated role ...');
+                break;
+        }
+    }
+    private function deleteUser(User $user): void
+    {
+        $question = new ConfirmationQuestion("Are You sure? [y/N]: ");
+        if($this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput , $question)) {
+            $key = array_search($user, $this->users);
+            $this->logger->info('User ' . $user->getID() . " " . $user->getName() . ' deleted.');
+            unset($this->users[$key]);
+        }
     }
     private function loadUsers(): array
     {
@@ -102,6 +130,11 @@ class Warehouse implements \JsonSerializable
             $users[] = new User($user->id, $user->name, $user->code, $user->role);
         }
         return $users;
+    }
+    private function writeUsers(): void
+    {
+        $this->db->connect('users.json');
+        $this->db->write($this->users);
     }
     private function selectUser(): User
     {
@@ -128,7 +161,6 @@ class Warehouse implements \JsonSerializable
         $code = self::validateNum('PIN', 'Enter PIN: ');
         return $user->getCode() == $code && ($code = true);
     }
-
     private function getAutoIncrementId(array $object): int
     {
         if (count($object) === 0) {
@@ -139,6 +171,8 @@ class Warehouse implements \JsonSerializable
         }, $object);
         return max($ids) + 1;
     }
+
+
     private function mainMenu(): string
     {
         $options = $this->user->getRole() == 'admin' ? self::MAIN_MENU['admin'] : self::MAIN_MENU['customer'];
@@ -152,8 +186,6 @@ class Warehouse implements \JsonSerializable
         $choice->setErrorMessage('Option %s is invalid.');
         return $this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput, $choice);
     }
-
-
 
 
 
@@ -205,17 +237,18 @@ class Warehouse implements \JsonSerializable
                     $this->showUsers();
                     switch ($this->menu(self::MAIN_MENU['submenu'])) {
                         case 'add':
-                            $question = new ConfirmationQuestion("Is NEW user an ADMIN? [y/N]: ");
-                            if ($this->symfonyHelper->ask($this->symfonyInput, $this->symfonyOutput , $question)) {
+                            if ($this->chooseUserRole()) {
                                 $this->createUser('admin');
                             } else {
                                 $this->createUser();
                             }
                             break;
                         case 'update':
-                            break; //TODO add update case
+                            $this->updateUser($this->selectUser());
+                            break;
                         case 'remove':
-                            break; //TODO add remove case
+                            $this->deleteUser($this->selectUser());
+                            break;
                         case 'back':
                             break;
                         case 'exit':
