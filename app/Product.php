@@ -12,14 +12,14 @@ class Product implements \JsonSerializable
     private Carbon $created;
     private Carbon $updated;
     private int $quantity;
-    private const COLUMNS = ['id', 'name', 'created', 'updated', 'quantity'];
+    private const COLUMNS = ['id', 'created', 'updated', 'name', 'quantity'];
 
-    public function __construct(int $id, string $name, int $quantity, Carbon $updated)
+    public function __construct(int $id, string $name, Carbon $updated, Carbon $created, int $quantity)
     {
         $this->id = $id;
         $this->name = $name;
-        $this->created = Carbon::now();
-        $this->updated = $updated;
+        $this->created = $updated;
+        $this->updated = $created;
         $this->quantity = $quantity;
         $this->logger = new Logger('Product ' . $this->name);
         $this->logger->pushHandler(new StreamHandler('warehouse.log'));
@@ -42,17 +42,33 @@ class Product implements \JsonSerializable
     {
         return $this->name;
     }
-    public function getCreated(): Carbon
+    public function setName(string $name): void
     {
-        return $this->created;
+        $this->name = $name;
     }
-    public function getUpdated(): Carbon
+    public function getCreated(string $timeZone='UTC'): Carbon
     {
-        return $this->updated;
+        return $this->created->timezone($timeZone);
+    }
+    public function getUpdated(string $timeZone='UTC'): Carbon
+    {
+        return $this->updated->timezone($timeZone);
+    }
+    public function setUpdated(Carbon $updated): void
+    {
+        $this->updated = $updated;
     }
     public function getQuantity(): int
     {
         return $this->quantity;
+    }
+    public function setQuantity(int $quantity): void
+    {
+        $this->quantity = $quantity;
+    }
+    public function addQuantity(int $quantity): void
+    {
+        $this->quantity += $quantity;
     }
     public static function getColumns(): array
     {
