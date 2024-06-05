@@ -22,8 +22,8 @@ class Warehouse implements \JsonSerializable
     private const TIMEZONE = 'Europe/Riga';
     private const DATETIME_FORMAT = 'Y-m-d H:i:s';
     private const MAIN_MENU = [
-        'admin' => ['users', 'warehouse'],
-        'customer' => ['warehouse'],
+        'admin' => ['users', 'warehouse', 'report'],
+        'customer' => ['warehouse', 'report'],
         'submenu' => ['add', 'update', 'remove']
     ];
     public function __construct(string $name)
@@ -226,6 +226,15 @@ class Warehouse implements \JsonSerializable
             );
         }
         return $products;
+    }
+    private function report(): void
+    {
+        $this->logger->info($this->user->getName() . ' Generating report... ');
+        echo $this->name . " contains " . count($this->products) . " products.\n";
+        $totalValue = array_sum(array_map(function ($product) {
+            return $product->getPrice();
+        }, $this->products));
+        echo "Total value: " . number_format($totalValue/100, 2, '.', '') . "\n";
     }
 
 
@@ -465,6 +474,9 @@ class Warehouse implements \JsonSerializable
                         case 'exit':
                             exit;
                     }
+                    break;
+                case 'report';
+                    $this->report();
                     break;
                 case 'exit':
                     exit;
