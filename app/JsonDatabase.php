@@ -30,7 +30,6 @@ class JsonDatabase implements Database
     }
     public function write(array $data): void
     {
-        $this->data = $data;
         file_put_contents($this->filepath, json_encode($data, JSON_PRETTY_PRINT));
         $this->logger->info('db ' . $this->filepath . ' write success.');
     }
