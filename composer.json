@@ -18,6 +18,7 @@
         "ext-json": "*",
         "ext-readline": "*",
         "monolog/monolog": "^2.9",
-        "nette/schema": "^1.2"
+        "nette/schema": "^1.2",
+        "ramsey/uuid": "^4.2"
     }
 }
