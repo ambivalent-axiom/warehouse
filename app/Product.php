@@ -1,37 +1,51 @@
 <?php
 namespace App;
 use Carbon\Carbon;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-
+use Ramsey\Uuid\Uuid;
 
 class Product implements \JsonSerializable
 {
+    private string $uuid;
     private int $id;
     private string $name;
+    private int $price;
     private Carbon $created;
     private Carbon $updated;
+    private ?Carbon $expiration;
     private int $quantity;
-    private const COLUMNS = ['id', 'created', 'updated', 'name', 'quantity'];
+    private const COLUMNS = ['uuid', 'id', 'created', 'updated', 'name', 'quantity', 'expiration', 'price'];
 
-    public function __construct(int $id, string $name, Carbon $updated, Carbon $created, int $quantity)
+    public function __construct(
+        int $id,
+        string $name,
+        int $quantity,
+        int $price,
+        $expiration = Null,
+        string $uuid = Null,
+        $updated = Null,
+        $created = Null
+        )
     {
+        $this->uuid = $uuid ? : Uuid::uuid4()->toString();
         $this->id = $id;
         $this->name = $name;
-        $this->created = $updated;
-        $this->updated = $created;
+        $this->price = $price;
+        $this->expiration = $expiration ? Carbon::parse($expiration) : Null;
+        $this->created = $created ? Carbon::parse($created) : Carbon::now('UTC');
+        $this->updated = $updated ? Carbon::parse($updated) : Carbon::now('UTC');
         $this->quantity = $quantity;
-        $this->logger = new Logger('Product ' . $this->name);
-        $this->logger->pushHandler(new StreamHandler('warehouse.log'));
     }
     public function jsonSerialize(): array
     {
         return [
+            'uuid' => $this->uuid,
             'id' => $this->id,
             'name' => $this->name,
             'created' => $this->created,
             'updated' => $this->updated,
             'quantity' => $this->quantity,
+            'expiration' => $this->expiration,
+            'price' => $this->price,
         ];
     }
     public function getId(): int
@@ -54,9 +68,9 @@ class Product implements \JsonSerializable
     {
         return $this->updated->timezone($timeZone);
     }
-    public function setUpdated(Carbon $updated): void
+    public function setUpdated(): void
     {
-        $this->updated = $updated;
+        $this->updated = Carbon::now('UTC');
     }
     public function getQuantity(): int
     {
@@ -69,6 +83,26 @@ class Product implements \JsonSerializable
     public function addQuantity(int $quantity): void
     {
         $this->quantity += $quantity;
+    }
+    public function getUuid(): string
+    {
+        return $this->uuid;
+    }
+    public function getPrice(): int
+    {
+        return $this->price;
+    }
+    public function setPrice(int $price): void
+    {
+        $this->price = $price;
+    }
+    public function getExpiration(string $timezone='UTC'): ?Carbon
+    {
+        return $this->expiration ? $this->expiration->timezone($timezone) : Null;
+    }
+    public function setExpiration(?Carbon $expiration): void
+    {
+        $this->expiration = $expiration;
     }
     public static function getColumns(): array
     {

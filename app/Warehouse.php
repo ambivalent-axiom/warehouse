@@ -10,6 +10,7 @@ use Symfony\Component\Console\Helper\Table;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
+
 class Warehouse implements \JsonSerializable
 {
     private string $name;
@@ -18,6 +19,8 @@ class Warehouse implements \JsonSerializable
     private array $products;
     private const VALID_STR_LENGTH = 20;
     private const CODE_LENGTH = 4;
+    private const TIMEZONE = 'Europe/Riga';
+    private const DATETIME_FORMAT = 'Y-m-d H:i:s';
     private const MAIN_MENU = [
         'admin' => ['users', 'warehouse'],
         'customer' => ['warehouse'],
@@ -55,11 +58,14 @@ class Warehouse implements \JsonSerializable
             ->setHeaders(Product::getColumns())
             ->setRows(array_map(function ($product) {
                 return [
+                    $product->getUuid(),
                     $product->getId(),
-                    $product->getCreated('Europe/Riga')->format('m/d/Y H:i:s'),
-                    $product->getUpdated('Europe/Riga')->format('m/d/Y H:i:s'),
+                    $product->getCreated(self::TIMEZONE)->format(self::DATETIME_FORMAT),
+                    $product->getUpdated(self::TIMEZONE)->format(self::DATETIME_FORMAT),
                     $product->getName(),
                     $product->getQuantity(),
+                    $product->getExpiration() ? $product->getExpiration(self::TIMEZONE)->format(self::DATETIME_FORMAT) : "No expiration",
+                    number_format($product->getPrice()/100, 2),
                 ];
             }, $this->products))
             ->setFooterTitle($this->user->getName())
@@ -69,12 +75,20 @@ class Warehouse implements \JsonSerializable
     {
         $name = self::validateName('Product', 'Enter product name: ');
         $quantity = self::validateNum(2, 'Quantity', 'Enter quantity: ', false);
+        $price = self::validateNum(10, 'Price', 'Enter price: ', false);
+        $expiration = self::validateNum(
+        2,
+        'Expiration',
+        'Expires in days: ',
+        false,
+        true);
+        $expiration = $expiration ? Carbon::now()->addDays($expiration) : Null;
         $this->products[] = new Product(
             $this->getAutoIncrementId($this->products),
             $name,
-            Carbon::now('UTC'),
-            Carbon::now('UTC'),
-            $quantity
+            $quantity,
+            $price,
+            $expiration
         );
         $this->writeProducts();
         $this->logger->info($this->user->getName() .
@@ -95,8 +109,9 @@ class Warehouse implements \JsonSerializable
                 " " .
                 $product->getName() .
                 '.');
-            unset($this->users[$key]);
+            unset($this->products[$key]);
         }
+        $this->writeProducts();
     }
     private function updateProduct(Product $product): void
     {
@@ -104,7 +119,7 @@ class Warehouse implements \JsonSerializable
             case 'name':
                 $nameOld = $product->getName();
                 $product->setName(self::validateName('name', 'Enter New Name: '));
-                $product->setUpdated(Carbon::now('UTC'));
+                $product->setUpdated();
                 $this->writeProducts();
                 $this->logger->info($this->user->getName() .
                     ' updated product ' .
@@ -116,7 +131,7 @@ class Warehouse implements \JsonSerializable
             case 'quantity':
                 $quantityOld = $product->getQuantity();
                 $product->setQuantity(self::validateNum(2, 'Quantity', 'Enter new quantity: '));
-                $product->setUpdated(Carbon::now('UTC'));
+                $product->setUpdated();
                 $this->writeProducts();
                 $this->logger->info($this->user->getName() .
                     ' updated product ' .
@@ -124,6 +139,40 @@ class Warehouse implements \JsonSerializable
                     $product->getName() . ' changed quantity from ' .
                     $quantityOld . " to " .
                     $product->getQuantity()
+                );
+                break;
+            case 'expiration':
+                $expirationOld = $product->getExpiration();
+                $expiration = self::validateNum(
+                    2,
+                    'Expiration',
+                    'Expires in days: ',
+                    false,
+                    true);
+                $expiration = $expiration ? Carbon::now()->addDays($expiration) : Null;
+                $product->setExpiration($expiration);
+                $product->setUpdated();
+                $this->writeProducts();
+                $this->logger->info($this->user->getName() .
+                    ' updated product ' .
+                    $product->getID() . " " .
+                    $product->getName() . ' changed expiration from ' .
+                    ($expirationOld !== Null ? $expirationOld : "No expiration") .
+                    " to " .
+                    ($expiration !== Null ? $expiration : "No expiration")
+                );
+                break;
+            case 'price':
+                $priceOld = $product->getPrice();
+                $product->setPrice(self::validateNum(10, 'Price', 'Enter new price: ', false));
+                $product->setUpdated();
+                $this->writeProducts();
+                $this->logger->info($this->user->getName() .
+                    ' updated product ' .
+                    $product->getID() . " " .
+                    $product->getName() . ' changed price from ' .
+                    $priceOld . " to " .
+                    $product->getPrice()
                 );
                 break;
             case 'back':
@@ -168,9 +217,12 @@ class Warehouse implements \JsonSerializable
             $products[] = new Product(
                 $product->id,
                 $product->name,
-                Carbon::parse($product->created),
-                Carbon::parse($product->updated),
                 $product->quantity,
+                $product->price,
+                $product->expiration,
+                $product->uuid,
+                $product->updated,
+                $product->created
             );
         }
         return $products;
@@ -320,10 +372,19 @@ class Warehouse implements \JsonSerializable
             echo "$what name must be a string, max " . self::VALID_STR_LENGTH . " chars.\n";
         }
     }
-    public static function validateNum(int $length, string $what, string $prompt, bool $fixed = true): string
+    public static function validateNum(
+        int $length,
+        string $what,
+        string $prompt,
+        bool $fixed = true,
+        bool $nullable = false
+    ): ?string
     {
         while(true) {
             $num = readline($prompt);
+            if (strlen($num) == 0 && $nullable) {
+                return Null;
+            }
             if ($fixed) {
                 if (is_numeric($num) && strlen($num) == $length) {
                     return $num;
